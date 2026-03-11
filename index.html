@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drive & Speak: Jobs Edition</title>
+    <style>
+        :root {
+            --road-color: #444;
+            --grass-color: #7cfc00;
+            --sky-color: #87ceeb;
+            --accent: #ffeb3b;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Arial Rounded MT Bold', 'Helvetica', sans-serif;
+            background-color: var(--grass-color);
+        }
+
+        /* TikTok-style Vertical Container */
+        #game-viewport {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            height: 100vh;
+            margin: 0 auto;
+            background-color: var(--grass-color);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border-left: 8px solid #55a600;
+            border-right: 8px solid #55a600;
+        }
+
+        /* The Moving Road */
+        #road {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 200%; /* Extra height for scrolling effect */
+            background-color: var(--road-color);
+            border-left: 10px solid white;
+            border-right: 10px solid white;
+            transition: top 1.5s ease-in-out;
+        }
+
+        .road-line {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8px;
+            height: 40px;
+            background-color: white;
+            margin: 20px 0;
+        }
+
+        /* UI Layers */
+        #ui-layer {
+            position: relative;
+            z-index: 10;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px;
+            pointer-events: none;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 25px;
+            width: 85%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            text-align: center;
+            pointer-events: auto;
+            border: 4px solid var(--sky-color);
+        }
+
+        #job-emoji { font-size: 80px; margin: 10px; }
+        #sentence-display { font-size: 24px; color: #333; line-height: 1.4; margin: 15px 0; }
+        
+        .feedback { font-weight: bold; height: 30px; margin-bottom: 5px; }
+        .transcript { font-style: italic; color: #666; font-size: 14px; min-height: 20px; }
+
+        /* The Car */
+        #car {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 60px;
+            z-index: 5;
+            transition: transform 0.2s;
+        }
+
+        .driving-animation {
+            animation: bounce 0.3s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { bottom: 120px; }
+            50% { bottom: 125px; }
+        }
+
+        /* Controls */
+        #mic-container {
+            pointer-events: auto;
+            margin-bottom: 30px;
+        }
+
+        #mic-btn {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: #ff4757;
+            border: 6px solid white;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #mic-btn.listening {
+            background: #2ed573;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .hidden { display: none !important; }
+
+        #end-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(135, 206, 235, 0.95);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-viewport">
+    <div id="road">
+        </div>
+
+    <div id="car">🚗</div>
+
+    <div id="ui-layer">
+        <div class="header">
+            <h2 style="margin:0; font-size: 18px; color: #2196F3;">Drive & Speak!</h2>
+            <div id="progress">Stop 1 of 6</div>
+        </div>
+
+        <div class="card" id="game-card">
+            <div id="job-emoji">👨‍✈️</div>
+            <div id="sentence-display">The pilot is flying a plane.</div>
+            <div class="feedback" id="feedback">Tap the mic to start!</div>
+            <div class="transcript" id="transcript"></div>
+        </div>
+
+        <div id="mic-container">
+            <button id="mic-btn">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="white">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <div id="end-screen" class="hidden">
+        <h1 style="font-size: 40px;">🏁</h1>
+        <h2>Great driving!</h2>
+        <p style="font-size: 20px;">You finished the Jobs Speaking Road!</p>
+        <button onclick="location.reload()" style="padding: 15px 30px; font-size: 18px; border-radius: 50px; border: none; background: #2ed573; color: white; cursor: pointer;">Play Again</button>
+    </div>
+</div>
+
+<script>
+    const levels = [
+        { s: "The pilot is flying a plane", e: "👨‍✈️" },
+        { s: "The dentist is fixing a man's teeth", e: "🦷" },
+        { s: "The singer is singing on stage", e: "🎤" },
+        { s: "The chef is cooking a dish", e: "👨‍🍳" },
+        { s: "The firefighter is putting out the fire", e: "👨‍🚒" },
+        { s: "The doctor is treating a patient", e: "👩‍⚕️" }
+    ];
+
+    let currentLevel = 0;
+    let isMoving = false;
+
+    // Build Road lines
+    const road = document.getElementById('road');
+    for(let i=0; i<20; i++) {
+        let line = document.createElement('div');
+        line.className = 'road-line';
+        line.style.top = (i * 100) + "px";
+        road.appendChild(line);
+    }
+
+    // Speech Recognition Setup
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        alert("Web Speech API is not supported in this browser. Please use Chrome.");
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    const micBtn = document.getElementById('mic-btn');
+    const feedback = document.getElementById('feedback');
+    const transcriptDisplay = document.getElementById('transcript');
+    const car = document.getElementById('car');
+
+    // Automatically ask for permission on first click
+    micBtn.addEventListener('click', () => {
+        if (isMoving) return;
+        recognition.start();
+    });
+
+    recognition.onstart = () => {
+        micBtn.classList.add('listening');
+        feedback.innerText = "Listening...";
+        feedback.style.color = "#2ed573";
+    };
+
+    recognition.onresult = (event) => {
+        const spokenText = event.results[0][0].transcript.toLowerCase().replace(/[.,!]/g, "");
+        const targetText = levels[currentLevel].s.toLowerCase().replace(/[.,!]/g, "");
+
+        transcriptDisplay.innerText = `You said: "${event.results[0][0].transcript}"`;
+
+        if (spokenText === targetText) {
+            handleSuccess();
+        } else {
+            feedback.innerText = "Try again!";
+            feedback.style.color = "#ff4757";
+        }
+    };
+
+    recognition.onend = () => {
+        micBtn.classList.remove('listening');
+    };
+
+    function handleSuccess() {
+        isMoving = true;
+        feedback.innerText = "Great! Let's drive!";
+        feedback.style.color = "#2ed573";
+        playDriveSound();
+
+        // Animate Car and Road
+        car.classList.add('driving-animation');
+        road.style.top = "-200px"; // Move road down
+
+        setTimeout(() => {
+            currentLevel++;
+            if (currentLevel < levels.length) {
+                updateLevel();
+                // Reset road position for infinite effect
+                road.style.transition = "none";
+                road.style.top = "0px";
+                setTimeout(() => { road.style.transition = "top 1.5s ease-in-out"; }, 50);
+                
+                car.classList.remove('driving-animation');
+                isMoving = false;
+                transcriptDisplay.innerText = "";
+                feedback.innerText = "Tap the mic to start!";
+            } else {
+                document.getElementById('end-screen').classList.remove('hidden');
+            }
+        }, 2000);
+    }
+
+    function updateLevel() {
+        document.getElementById('progress').innerText = `Stop ${currentLevel + 1} of 6`;
+        document.getElementById('job-emoji').innerText = levels[currentLevel].e;
+        document.getElementById('sentence-display').innerText = levels[currentLevel].s;
+    }
+
+    function playDriveSound() {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        oscillator.type = 'sawtooth';
+        oscillator.frequency.setValueAtTime(100, audioCtx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 1);
+        
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1);
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 1);
+    }
+</script>
+
+</body>
+</html>
